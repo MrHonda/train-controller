@@ -28,7 +28,7 @@ MAX_RAW = [
 # Hodnota mezi 0.01 a 1.0. 
 # - Menší číslo (např. 0.05) = silnější vyhlazení, ale páčka může působit "gumově" a opožděně.
 # - Větší číslo (např. 0.3) = rychlejší reakce, ale menší vyhlazení.
-SMOOTHING_FACTOR = 0.4
+SMOOTHING_FACTOR = 0.2
 
 # Pole pro uchování předchozích hodnot pro každou z 5 os
 smoothed_raw = [None] * 5
