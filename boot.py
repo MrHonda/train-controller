@@ -1,0 +1,35 @@
+import usb_hid
+
+# Nastavení Gamepadu: Rozsah -127 až 127
+GAMEPAD_REPORT_DESCRIPTOR = bytes((
+    0x05, 0x01,  # Usage Page (Generic Desktop Ctrls)
+    0x09, 0x05,  # Usage (Game Pad)
+    0xA1, 0x01,  # Collection (Application)
+    0x85, 0x04,  #   Report ID (4)
+    
+    # 16 Tlačítek
+    0x05, 0x09, 0x19, 0x01, 0x29, 0x10, 0x15, 0x00, 0x25, 0x01,
+    0x75, 0x01, 0x95, 0x10, 0x81, 0x02,
+    
+    # 6 Os (X, Y, Z, Rx, Ry, Rz)
+    0x05, 0x01, 0x09, 0x30, 0x09, 0x31, 0x09, 0x32, 0x09, 0x33, 0x09, 0x34, 0x09, 0x35,
+    
+    0x15, 0x81,  # LOGICAL MINIMUM (-127)  <--- ZMĚNA (0x81 je -127)
+    0x25, 0x7F,  # LOGICAL MAXIMUM (127)
+    0x75, 0x08,  # Report Size (8 bitů)
+    0x95, 0x06,  # Report Count (6 os)
+    0x81, 0x02,  # Input
+    
+    0xC0         # End Collection
+))
+
+gamepad = usb_hid.Device(
+    report_descriptor=GAMEPAD_REPORT_DESCRIPTOR,
+    usage_page=0x01,
+    usage=0x05,
+    report_ids=(4,),
+    in_report_lengths=(8,), 
+    out_report_lengths=(0,)
+)
+
+usb_hid.enable((gamepad,))
