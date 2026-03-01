@@ -28,7 +28,7 @@ MAX_RAW = [
 # Hodnota mezi 0.01 a 1.0. 
 # - Menší číslo (např. 0.05) = silnější vyhlazení, ale páčka může působit "gumově" a opožděně.
 # - Větší číslo (např. 0.3) = rychlejší reakce, ale menší vyhlazení.
-SMOOTHING_FACTOR = 0.15 
+SMOOTHING_FACTOR = 0.4
 
 # Pole pro uchování předchozích hodnot pro každou z 5 os
 smoothed_raw = [None] * 5
@@ -43,33 +43,35 @@ s2 = digitalio.DigitalInOut(board.GP16)
 s2.direction = digitalio.Direction.OUTPUT
 
 # --- HARDWARE: ENKODÉR ---
-# Enkodéry obsazují bity (tlačítka) 0 až 7
 encoders = [
-    encoder_handler.Encoder(board.GP15, board.GP14),  # Enkodér 1 (Bity 0, 1)
-    encoder_handler.Encoder(board.GP13, board.GP12),  # Enkodér 2 (Bity 2, 3)
-    encoder_handler.Encoder(board.GP11, board.GP10),  # Enkodér 3 (Bity 4, 5)
-    encoder_handler.Encoder(board.GP9, board.GP8)     # Enkodér 4 (Bity 6, 7)
+    encoder_handler.Encoder(board.GP15, board.GP14),
+    encoder_handler.Encoder(board.GP13, board.GP12),
+    encoder_handler.Encoder(board.GP11, board.GP10),
+    encoder_handler.Encoder(board.GP9, board.GP8)
 ]
 
 # --- HARDWARE: TLAČÍTKA ---
-# Mapa tlačítek: (Pin, Index bitu)
-# Používej indexy 8 až 15, protože 0-7 už mají enkodéry.
 BUTTON_MAP = [
-    (board.GP19, 8),
-    (board.GP20, 9),
-    (board.GP21, 10),
-    (board.GP22, 11),
-    (board.GP3, 12),
-    (board.GP2, 13),
+    # buttons
+    (board.GP19, 8, digitalio.Pull.DOWN),
+    (board.GP20, 9, digitalio.Pull.DOWN),
+    (board.GP21, 10, digitalio.Pull.DOWN),
+    (board.GP22, 11, digitalio.Pull.DOWN),
+    (board.GP3, 12, digitalio.Pull.DOWN),
+    (board.GP2, 13, digitalio.Pull.DOWN),
+    #encoders
+    (board.GP7, 14, digitalio.Pull.UP),
+    (board.GP6, 15, digitalio.Pull.UP),
+    (board.GP5, 16, digitalio.Pull.UP),
+    (board.GP4, 17, digitalio.Pull.UP),
 ]
 
 buttons = []
-for pin, bit_index in BUTTON_MAP:
+for pin, bit_index, pull in BUTTON_MAP:
     btn = digitalio.DigitalInOut(pin)
     btn.direction = digitalio.Direction.INPUT
-    # ZMĚNA ZDE: Použijeme Pull.DOWN, protože spínáš proti 3.3V
-    btn.pull = digitalio.Pull.DOWN 
-    buttons.append((btn, bit_index))
+    btn.pull = pull
+    buttons.append((btn, bit_index, pull))
 
 
 # --- USB ---
@@ -83,7 +85,7 @@ if not gamepad_device:
     print("CHYBA: Gamepad nenalezen!")
     while True: time.sleep(1)
 
-report = bytearray(8)
+report = bytearray(10)
 
 # --- POMOCNÉ FUNKCE ---
 def read_adc(channel):
@@ -122,7 +124,6 @@ def ziskej_data_kanalu(channel):
     return int(smoothed_raw[channel]), int(mapped), perc
 
 # --- HLAVNÍ SMYČKA ---
-print(f"Start: Raw {MIN_RAW}-{MAX_RAW} -> Axis 0-127")
 labels = ["X", "Y", "Z", "Rx", "Ry", "Rz"]
 
 while True:
@@ -130,7 +131,7 @@ while True:
     print_str = ""
     buttons_state = 0
     
-    # 1. ČTENÍ VŠECH 4 ENKODÉRŮ
+    # 1. ENKODÉRŮ
     for index, enc in enumerate(encoders):
         state = enc.update()
         base_bit = index * 2 
@@ -144,12 +145,15 @@ while True:
             # print(f"Enc {index+1}: VPRAVO")
 
     # 2. ČTENÍ KLASICKÝCH TLAČÍTEK
-    for btn, bit_index in buttons:
-        # ZMĚNA ZDE: btn.value je True, když je tlačítko stisknuto a přivádí 3.3V
-        if btn.value: 
-            buttons_state |= (1 << bit_index)
-            # print(f"Btn {bit_index+1}")
-    
+    for btn, bit_index, pull in buttons:
+        if pull == digitalio.Pull.DOWN:
+            if btn.value: 
+                buttons_state |= (1 << bit_index)
+                # print(f"Btn Pull.DOWN {bit_index+1}")
+        elif pull == digitalio.Pull.UP:
+            if not btn.value: 
+                buttons_state |= (1 << bit_index)
+                # print(f"Btn Pull.UP {bit_index+1}")
     # 3. ČTENÍ ANALOGOVÝCH OS
     for i in range(5):
         raw, joy_val, perc = ziskej_data_kanalu(i)
@@ -163,7 +167,7 @@ while True:
         final_axes.append(0)
 
     struct.pack_into(
-        '<HBBBBBB', report, 0,
+        '<Ibbbbbb', report, 0,
         buttons_state,
         final_axes[0], final_axes[1], final_axes[2], final_axes[3], final_axes[4], final_axes[5]
     )
